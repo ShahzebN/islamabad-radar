@@ -39,11 +39,14 @@
 
     <script>
         const routeCache = {};
-        const targetUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
-        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+        // Using the most stable v2 endpoint structure
+        const targetUrl = "https://api.adsb.lol/v2/lat/33.6844/lon/73.0479/dist/250";
+        // Switched to corsproxy.io for zero-delay instant fetching
+        const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
 
         function pollRadar() {
             document.getElementById('status').innerText = 'Polling sector...';
+            document.getElementById('status').style.color = '#e3b341'; // Yellow while fetching
             
             fetch(proxyUrl)
                 .then(res => {
@@ -52,66 +55,3 @@
                 })
                 .then(data => {
                     const tbody = document.getElementById('radar-body');
-                    const countElem = document.getElementById('ac-count');
-                    tbody.innerHTML = '';
-                    let count = 0;
-
-                    if (data && data.ac && data.ac.length > 0) {
-                        data.ac.forEach(ac => {
-                            const flight = ac.flight ? ac.flight.trim() : (ac.r || 'N/A');
-                            const operatorCode = (ac.ownOp || flight.substring(0, 3)).trim().toUpperCase();
-                            const logoUrl = 'https://flightaware.com/images/airline_logos/90p/' + operatorCode + '.png';
-                            const desc = ac.desc || ac.t || 'Commercial Airliner';
-                            const alt = ac.alt_baro || ac.alt_geom || 0;
-                            const speed = ac.gs || 0;
-                            const lat = ac.lat ? ac.lat.toFixed(2) : '0.00';
-                            const lon = ac.lon ? ac.lon.toFixed(2) : '0.00';
-
-                            let routeDisplay = '--- &rarr; ---';
-                            if (flight !== 'N/A') {
-                                if (routeCache[flight]) {
-                                    routeDisplay = routeCache[flight];
-                                } else {
-                                    routeCache[flight] = 'Fetching...';
-                                    fetch('https://hexdb.io/api/v1/route/icao/' + flight)
-                                        .then(r => r.json())
-                                        .then(res => {
-                                            if (res && res.route) {
-                                                const pts = res.route.split('-');
-                                                routeCache[flight] = (pts[0] || '---') + ' &rarr; ' + (pts[1] || '---');
-                                            } else {
-                                                routeCache[flight] = 'Unknown Route';
-                                            }
-                                        }).catch(() => { routeCache[flight] = '---'; });
-                                }
-                            }
-
-                            const row = `<tr>
-                                <td><img src="${logoUrl}" class="airline-logo" onerror="this.style.display='none'"> <strong>${flight}</strong><br><span class="badge">${operatorCode}</span></td>
-                                <td><span class="route">${routeDisplay}</span></td>
-                                <td>${desc}</td>
-                                <td>${alt}</td>
-                                <td>${speed}</td>
-                                <td>${lat}, ${lon}</td>
-                            </tr>`;
-                            tbody.innerHTML += row;
-                            count++;
-                        });
-                    } else {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#8b949e;">No aircraft currently reported in sector range.</td></tr>';
-                    }
-                    countElem.innerText = count;
-                    document.getElementById('status').innerText = 'Live (Updated: ' + new Date().toLocaleTimeString() + ')';
-                })
-                .catch(err => {
-                    console.warn('Background poll retry:', err);
-                    document.getElementById('status').innerText = 'Reconnecting...';
-                });
-        }
-
-        // Run immediately on load, then every 5 seconds
-        pollRadar();
-        setInterval(pollRadar, 5000);
-    </script>
-</body>
-</html>
