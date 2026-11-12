@@ -19,11 +19,8 @@
     </style>
     <script>
         let routeCache = {};
-        // Multi-endpoint failover array for high availability
-        const apiEndpoints = [
-            "https://api.adsb.lol/v2/point/33.6844/73.0479/250",
-            "https://avioadsb.org/v1/point/33.6844/73.0479/250"
-        ];
+        // Using the standard adsb.lol v2 point query URL format
+        const adsbApiUrl = "https://api.adsb.lol/v2/lat/33.6844/lon/73.0479/dist/250";
 
         function showError(msg) {
             let errBox = document.getElementById('error-box');
@@ -31,27 +28,16 @@
             errBox.innerText = "System Warning: " + msg;
         }
 
-        async function fetchWithFailover() {
-            for (let url of apiEndpoints) {
-                try {
-                    let response = await fetch(url);
-                    if (response.ok) {
-                        let data = await response.json();
-                        document.getElementById('error-box').style.display = 'none';
-                        return data;
-                    }
-                } catch (e) {
-                    console.warn(`Endpoint failed: ${url}`, e);
-                }
-            }
-            throw new Error("All redundant telemetry nodes failed to respond.");
-        }
-
         function fetchRadarData() {
             document.getElementById('status').innerText = 'Polling sector telemetry...';
             
-            fetchWithFailover()
+            fetch(adsbApiUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
+                    return response.json();
+                })
                 .then(data => {
+                    document.getElementById('error-box').style.display = 'none';
                     let tbody = document.getElementById('radar-body');
                     let countElem = document.getElementById('ac-count');
                     tbody.innerHTML = '';
@@ -107,7 +93,7 @@
                 .catch(err => { 
                     console.error('Telemetry error:', err);
                     showError(err.message);
-                    document.getElementById('status').innerText = 'Connection degraded.';
+                    document.getElementById('status').innerText = 'Connection failed.';
                 });
         }
 
