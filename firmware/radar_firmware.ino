@@ -19,22 +19,25 @@
     </style>
     <script>
         let routeCache = {};
-        const adsbApiUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
+        // Using the standard adsb.lol v2 point query URL format
+        const adsbApiUrl = "https://api.adsb.lol/v2/lat/33.6844/lon/73.0479/dist/250";
 
         function showError(msg) {
             let errBox = document.getElementById('error-box');
             errBox.style.display = 'block';
-            errBox.innerText = "Error: " + msg;
+            errBox.innerText = "System Warning: " + msg;
         }
 
         function fetchRadarData() {
-            document.getElementById('status').innerText = 'Fetching data...';
+            document.getElementById('status').innerText = 'Polling sector telemetry...';
+            
             fetch(adsbApiUrl)
                 .then(response => {
                     if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
                     return response.json();
                 })
                 .then(data => {
+                    document.getElementById('error-box').style.display = 'none';
                     let tbody = document.getElementById('radar-body');
                     let countElem = document.getElementById('ac-count');
                     tbody.innerHTML = '';
@@ -88,9 +91,9 @@
                     document.getElementById('status').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
                 })
                 .catch(err => { 
-                    console.error('Fetch error:', err);
+                    console.error('Telemetry error:', err);
                     showError(err.message);
-                    document.getElementById('status').innerText = 'Fetch failed.';
+                    document.getElementById('status').innerText = 'Connection failed.';
                 });
         }
 
