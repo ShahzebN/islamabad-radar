@@ -19,8 +19,9 @@
     </style>
     <script>
         let routeCache = {};
-        // Using the standard adsb.lol v2 point query URL format
-        const adsbApiUrl = "https://api.adsb.lol/v2/lat/33.6844/lon/73.0479/dist/250";
+        // Wrapped with a public CORS proxy to bypass browser security blocks on GitHub Pages
+        const rawApiUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
+        const adsbApiUrl = "https://api.cors.lol/?url=" + encodeURIComponent(rawApiUrl);
 
         function showError(msg) {
             let errBox = document.getElementById('error-box');
