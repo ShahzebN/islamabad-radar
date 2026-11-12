@@ -19,7 +19,7 @@
 </head>
 <body>
     <h2>Islamabad Airspace Radar (Cloud Stream)</h2>
-    <p>Tracking live ADS-B traffic around Pakistan sector via cloud. Auto-updating every 5 seconds. <span id="status">Connecting...</span></p>
+    <p>Tracking live ADS-B traffic around Pakistan sector via cloud. Auto-updating every 10 seconds. <span id="status">Connecting...</span></p>
     <table>
         <thead>
             <tr>
@@ -39,15 +39,16 @@
 
     <script>
         const routeCache = {};
-        // NO PROXY NEEDED! ADSB.fi natively allows direct GitHub Pages connections.
-        const targetUrl = "https://api.adsb.fi/v2/lat/33.6844/lon/73.0479/dist/250";
+        // Using api.adsb.lol routed through CodeTabs, which is highly resilient against Cloudflare blocks
+        const targetUrl = "https://api.adsb.lol/v2/lat/33.6844/lon/73.0479/dist/250";
+        const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + targetUrl;
 
         function pollRadar() {
             const statusEl = document.getElementById('status');
             statusEl.innerText = 'Polling sector...';
             statusEl.style.color = '#e3b341';
             
-            fetch(targetUrl)
+            fetch(proxyUrl)
                 .then(res => {
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     return res.json();
@@ -55,6 +56,9 @@
                 .then(data => {
                     const tbody = document.getElementById('radar-body');
                     const countElem = document.getElementById('ac-count');
+                    
+                    if (data.error) throw new Error(data.error);
+
                     tbody.innerHTML = '';
                     let count = 0;
 
@@ -80,42 +84,4 @@
                                         .then(res => {
                                             if (res && res.route) {
                                                 const pts = res.route.split('-');
-                                                routeCache[flight] = (pts[0] || '---') + ' &rarr; ' + (pts[1] || '---');
-                                            } else {
-                                                routeCache[flight] = 'Unknown Route';
-                                            }
-                                        }).catch(() => { routeCache[flight] = '---'; });
-                                }
-                            }
-
-                            const row = `<tr>
-                                <td><img src="${logoUrl}" class="airline-logo" onerror="this.style.display='none'"> <strong>${flight}</strong><br><span class="badge">${operatorCode}</span></td>
-                                <td><span class="route">${routeDisplay}</span></td>
-                                <td>${desc}</td>
-                                <td>${alt}</td>
-                                <td>${speed}</td>
-                                <td>${lat}, ${lon}</td>
-                            </tr>`;
-                            tbody.innerHTML += row;
-                            count++;
-                        });
-                    } else {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#8b949e;">No aircraft currently reported in sector range.</td></tr>';
-                    }
-                    countElem.innerText = count;
-                    statusEl.style.color = '#3fb950'; 
-                    statusEl.innerText = 'Live (Updated: ' + new Date().toLocaleTimeString() + ')';
-                })
-                .catch(err => {
-                    console.warn('Poll error:', err);
-                    statusEl.style.color = '#f85149'; 
-                    // This will now print the exact error on your screen if it fails
-                    statusEl.innerText = 'Connection Error: ' + err.message; 
-                });
-        }
-
-        setTimeout(pollRadar, 500);
-        setInterval(pollRadar, 5000);
-    </script>
-</body>
-</html>
+                                                routeCache[flight] = (pts[0] || '---') + ' &rarr;
