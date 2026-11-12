@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Islamabad Airspace Radar - Cloud</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="no-referrer">
+    <title>Islamabad Airspace Radar - Cloud</title>
     <style>
-        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; }
+        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; margin: 0; }
         h2 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #161b22; border-radius: 6px; overflow: hidden; }
         th, td { border: 1px solid #30363d; padding: 10px; text-align: left; font-size: 13px; vertical-align: middle; }
@@ -15,39 +15,57 @@
         .route { color: #8b949e; font-size: 12px; }
         .airline-logo { width: 45px; height: auto; vertical-align: middle; margin-right: 10px; border-radius: 4px; }
         #status { color: #3fb950; font-style: italic; font-size: 13px; }
-        #error-box { background: #f85149; color: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none; }
     </style>
-    <script>
-        let routeCache = {};
-        const targetUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
-        const adsbApiUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+</head>
+<body>
+    <h2>Islamabad Airspace Radar (Cloud Stream)</h2>
+    <p>Tracking live ADS-B traffic around Pakistan sector via cloud. Auto-updating every 5 seconds. <span id="status">Connecting...</span></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Flight / Airline</th>
+                <th>Route (Orig -> Dest)</th>
+                <th>Aircraft Type</th>
+                <th>Altitude (ft)</th>
+                <th>Speed (kts)</th>
+                <th>Position</th>
+            </tr>
+        </thead>
+        <tbody id="radar-body">
+            <tr><td colspan="6" style="text-align:center; color:#8b949e;">Initializing telemetry feed...</td></tr>
+        </tbody>
+    </table>
+    <p style="margin-top:15px;"><b>Total Aircraft Tracked in Sector:</b> <span id="ac-count">0</span></p>
 
-        function fetchRadarData() {
-            document.getElementById('status').innerText = 'Polling sector telemetry...';
+    <script>
+        const routeCache = {};
+        const targetUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
+        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+
+        function pollRadar() {
+            document.getElementById('status').innerText = 'Polling sector...';
             
-            fetch(adsbApiUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
-                    return response.json();
+            fetch(proxyUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error('Network response failed');
+                    return res.json();
                 })
                 .then(data => {
-                    // Hide any previous error banner instantly on success
-                    document.getElementById('error-box').style.display = 'none';
-                    let tbody = document.getElementById('radar-body');
-                    let countElem = document.getElementById('ac-count');
+                    const tbody = document.getElementById('radar-body');
+                    const countElem = document.getElementById('ac-count');
                     tbody.innerHTML = '';
                     let count = 0;
 
-                    if(data.ac && data.ac.length > 0) {
+                    if (data && data.ac && data.ac.length > 0) {
                         data.ac.forEach(ac => {
-                            let flight = ac.flight ? ac.flight.trim() : (ac.r || 'N/A');
-                            let operatorCode = (ac.ownOp || flight.substring(0, 3)).trim().toUpperCase();
-                            let logoUrl = 'https://flightaware.com/images/airline_logos/90p/' + operatorCode + '.png';
-                            let desc = ac.desc || ac.t || 'Commercial Airliner';
-                            let alt = ac.alt_baro || ac.alt_geom || 0;
-                            let speed = ac.gs || 0;
-                            let lat = ac.lat ? ac.lat.toFixed(2) : '0.00';
-                            let lon = ac.lon ? ac.lon.toFixed(2) : '0.00';
+                            const flight = ac.flight ? ac.flight.trim() : (ac.r || 'N/A');
+                            const operatorCode = (ac.ownOp || flight.substring(0, 3)).trim().toUpperCase();
+                            const logoUrl = 'https://flightaware.com/images/airline_logos/90p/' + operatorCode + '.png';
+                            const desc = ac.desc || ac.t || 'Commercial Airliner';
+                            const alt = ac.alt_baro || ac.alt_geom || 0;
+                            const speed = ac.gs || 0;
+                            const lat = ac.lat ? ac.lat.toFixed(2) : '0.00';
+                            const lon = ac.lon ? ac.lon.toFixed(2) : '0.00';
 
                             let routeDisplay = '--- &rarr; ---';
                             if (flight !== 'N/A') {
@@ -59,7 +77,7 @@
                                         .then(r => r.json())
                                         .then(res => {
                                             if (res && res.route) {
-                                                let pts = res.route.split('-');
+                                                const pts = res.route.split('-');
                                                 routeCache[flight] = (pts[0] || '---') + ' &rarr; ' + (pts[1] || '---');
                                             } else {
                                                 routeCache[flight] = 'Unknown Route';
@@ -68,9 +86,9 @@
                                 }
                             }
 
-                            let row = `<tr>
-                                <td><img src='${logoUrl}' class='airline-logo' onerror="this.style.display='none'"> <strong>${flight}</strong><br><span class='badge'>${operatorCode}</span></td>
-                                <td><span class='route'>${routeDisplay}</span></td>
+                            const row = `<tr>
+                                <td><img src="${logoUrl}" class="airline-logo" onerror="this.style.display='none'"> <strong>${flight}</strong><br><span class="badge">${operatorCode}</span></td>
+                                <td><span class="route">${routeDisplay}</span></td>
                                 <td>${desc}</td>
                                 <td>${alt}</td>
                                 <td>${speed}</td>
@@ -83,9 +101,17 @@
                         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#8b949e;">No aircraft currently reported in sector range.</td></tr>';
                     }
                     countElem.innerText = count;
-                    document.getElementById('status').innerText = 'Live (Last updated: ' + new Date().toLocaleTimeString() + ')';
+                    document.getElementById('status').innerText = 'Live (Updated: ' + new Date().toLocaleTimeString() + ')';
                 })
-                .catch(err => { 
-                    // Silent background retry: do NOT show the red banner on minor network drops,
-                    // just keep the current table active and log to console.
-                    console.warn('Background poll skipped/retrying:', err);
+                .catch(err => {
+                    console.warn('Background poll retry:', err);
+                    document.getElementById('status').innerText = 'Reconnecting...';
+                });
+        }
+
+        // Run immediately on load, then every 5 seconds
+        pollRadar();
+        setInterval(pollRadar, 5000);
+    </script>
+</body>
+</html>
