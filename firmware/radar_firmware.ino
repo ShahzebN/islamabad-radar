@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Islamabad Airspace Radar - Cloud</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <style>
-        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; margin: 0; }
+        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; }
         h2 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #161b22; border-radius: 6px; overflow: hidden; }
         th, td { border: 1px solid #30363d; padding: 10px; text-align: left; font-size: 13px; vertical-align: middle; }
@@ -14,62 +14,59 @@
         .badge { background: #1f6feb; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; display: inline-block; margin-top: 4px; }
         .route { color: #8b949e; font-size: 12px; }
         .airline-logo { width: 45px; height: auto; vertical-align: middle; margin-right: 10px; border-radius: 4px; }
-        #status { color: #3fb950; font-style: italic; font-size: 13px; font-weight: bold; }
+        #status { color: #3fb950; font-style: italic; font-size: 13px; }
+        #error-box { background: #f85149; color: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none; }
     </style>
-</head>
-<body>
-    <h2>Islamabad Airspace Radar (Cloud Stream)</h2>
-    <p>Tracking live ADS-B traffic around Pakistan sector via cloud. Auto-updating every 5 seconds. <span id="status">Connecting...</span></p>
-    <table>
-        <thead>
-            <tr>
-                <th>Flight / Airline</th>
-                <th>Route (Orig -> Dest)</th>
-                <th>Aircraft Type</th>
-                <th>Altitude (ft)</th>
-                <th>Speed (kts)</th>
-                <th>Position</th>
-            </tr>
-        </thead>
-        <tbody id="radar-body">
-            <tr><td colspan="6" style="text-align:center; color:#8b949e;">Initializing telemetry feed...</td></tr>
-        </tbody>
-    </table>
-    <p style="margin-top:15px;"><b>Total Aircraft Tracked in Sector:</b> <span id="ac-count">0</span></p>
-
     <script>
-        console.log("Radar script started! Pointing to api.airplanes.live");
-        const routeCache = {};
-        
-        // Switched to api.airplanes.live - Highly reliable with native open CORS headers for browsers
-        const targetUrl = "https://api.airplanes.live/v2/point/33.6844/73.0479/250";
+        let routeCache = {};
+        // Multi-endpoint failover array for high availability
+        const apiEndpoints = [
+            "https://api.adsb.lol/v2/point/33.6844/73.0479/250",
+            "https://avioadsb.org/v1/point/33.6844/73.0479/250"
+        ];
 
-        function pollRadar() {
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = 'Polling sector...';
-            statusEl.style.color = '#e3b341';
+        function showError(msg) {
+            let errBox = document.getElementById('error-box');
+            errBox.style.display = 'block';
+            errBox.innerText = "System Warning: " + msg;
+        }
+
+        async function fetchWithFailover() {
+            for (let url of apiEndpoints) {
+                try {
+                    let response = await fetch(url);
+                    if (response.ok) {
+                        let data = await response.json();
+                        document.getElementById('error-box').style.display = 'none';
+                        return data;
+                    }
+                } catch (e) {
+                    console.warn(`Endpoint failed: ${url}`, e);
+                }
+            }
+            throw new Error("All redundant telemetry nodes failed to respond.");
+        }
+
+        function fetchRadarData() {
+            document.getElementById('status').innerText = 'Polling sector telemetry...';
             
-            fetch(targetUrl)
-                .then(res => {
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                    return res.json();
-                })
+            fetchWithFailover()
                 .then(data => {
-                    const tbody = document.getElementById('radar-body');
-                    const countElem = document.getElementById('ac-count');
+                    let tbody = document.getElementById('radar-body');
+                    let countElem = document.getElementById('ac-count');
                     tbody.innerHTML = '';
                     let count = 0;
 
-                    if (data && data.ac && data.ac.length > 0) {
+                    if(data.ac && data.ac.length > 0) {
                         data.ac.forEach(ac => {
-                            const flight = ac.flight ? ac.flight.trim() : (ac.r || 'N/A');
-                            const operatorCode = (ac.ownOp || flight.substring(0, 3)).trim().toUpperCase();
-                            const logoUrl = 'https://flightaware.com/images/airline_logos/90p/' + operatorCode + '.png';
-                            const desc = ac.desc || ac.t || 'Commercial Airliner';
-                            const alt = ac.alt_baro || ac.alt_geom || 0;
-                            const speed = ac.gs || 0;
-                            const lat = ac.lat ? ac.lat.toFixed(2) : '0.00';
-                            const lon = ac.lon ? ac.lon.toFixed(2) : '0.00';
+                            let flight = ac.flight ? ac.flight.trim() : (ac.r || 'N/A');
+                            let operatorCode = (ac.ownOp || flight.substring(0, 3)).trim().toUpperCase();
+                            let logoUrl = 'https://flightaware.com/images/airline_logos/90p/' + operatorCode + '.png';
+                            let desc = ac.desc || ac.t || 'Commercial Airliner';
+                            let alt = ac.alt_baro || ac.alt_geom || 0;
+                            let speed = ac.gs || 0;
+                            let lat = ac.lat ? ac.lat.toFixed(2) : '0.00';
+                            let lon = ac.lon ? ac.lon.toFixed(2) : '0.00';
 
                             let routeDisplay = '--- &rarr; ---';
                             if (flight !== 'N/A') {
@@ -81,7 +78,7 @@
                                         .then(r => r.json())
                                         .then(res => {
                                             if (res && res.route) {
-                                                const pts = res.route.split('-');
+                                                let pts = res.route.split('-');
                                                 routeCache[flight] = (pts[0] || '---') + ' &rarr; ' + (pts[1] || '---');
                                             } else {
                                                 routeCache[flight] = 'Unknown Route';
@@ -90,9 +87,9 @@
                                 }
                             }
 
-                            const row = `<tr>
-                                <td><img src="${logoUrl}" class="airline-logo" onerror="this.style.display='none'"> <strong>${flight}</strong><br><span class="badge">${operatorCode}</span></td>
-                                <td><span class="route">${routeDisplay}</span></td>
+                            let row = `<tr>
+                                <td><img src='${logoUrl}' class='airline-logo' onerror="this.style.display='none'"> <strong>${flight}</strong><br><span class='badge'>${operatorCode}</span></td>
+                                <td><span class='route'>${routeDisplay}</span></td>
                                 <td>${desc}</td>
                                 <td>${alt}</td>
                                 <td>${speed}</td>
@@ -105,18 +102,31 @@
                         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#8b949e;">No aircraft currently reported in sector range.</td></tr>';
                     }
                     countElem.innerText = count;
-                    statusEl.style.color = '#3fb950'; 
-                    statusEl.innerText = 'Live (Updated: ' + new Date().toLocaleTimeString() + ')';
+                    document.getElementById('status').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
                 })
-                .catch(err => {
-                    console.error('Fetch error:', err);
-                    statusEl.style.color = '#f85149'; 
-                    statusEl.innerText = 'Connection Error: ' + err.message; 
+                .catch(err => { 
+                    console.error('Telemetry error:', err);
+                    showError(err.message);
+                    document.getElementById('status').innerText = 'Connection degraded.';
                 });
         }
 
-        setTimeout(pollRadar, 500);
-        setInterval(pollRadar, 5000);
+        setInterval(fetchRadarData, 3000);
+        window.onload = fetchRadarData;
     </script>
+</head>
+<body>
+    <h2>Islamabad Airspace Radar (Cloud Stream)</h2>
+    <div id="error-box"></div>
+    <p>Tracking live ADS-B traffic around Pakistan sector via cloud. Auto-updating every 3 seconds. <span id='status'>Connecting...</span></p>
+    <table>
+        <thead>
+            <tr><th>Flight / Airline</th><th>Route (Orig -> Dest)</th><th>Aircraft Type</th><th>Altitude (ft)</th><th>Speed (kts)</th><th>Position</th></tr>
+        </thead>
+        <tbody id='radar-body'>
+            <tr><td colspan='6' style='text-align:center;'>Loading initial flight data...</td></tr>
+        </tbody>
+    </table>
+    <p style='margin-top:15px;'><b>Total Aircraft Tracked in Sector:</b> <span id='ac-count'>0</span></p>
 </body>
 </html>
