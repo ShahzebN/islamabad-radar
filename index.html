@@ -19,14 +19,8 @@
     </style>
     <script>
         let routeCache = {};
-        const rawApiUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
-        const adsbApiUrl = "https://api.cors.lol/?url=" + encodeURIComponent(rawApiUrl);
-
-        function showError(msg) {
-            let errBox = document.getElementById('error-box');
-            errBox.style.display = 'block';
-            errBox.innerText = "System Warning: " + msg;
-        }
+        const targetUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
+        const adsbApiUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
 
         function fetchRadarData() {
             document.getElementById('status').innerText = 'Polling sector telemetry...';
@@ -37,6 +31,7 @@
                     return response.json();
                 })
                 .then(data => {
+                    // Hide any previous error banner instantly on success
                     document.getElementById('error-box').style.display = 'none';
                     let tbody = document.getElementById('radar-body');
                     let countElem = document.getElementById('ac-count');
@@ -88,31 +83,9 @@
                         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#8b949e;">No aircraft currently reported in sector range.</td></tr>';
                     }
                     countElem.innerText = count;
-                    document.getElementById('status').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+                    document.getElementById('status').innerText = 'Live (Last updated: ' + new Date().toLocaleTimeString() + ')';
                 })
                 .catch(err => { 
-                    console.error('Telemetry error:', err);
-                    showError(err.message);
-                    document.getElementById('status').innerText = 'Connection failed.';
-                });
-        }
-
-        setInterval(fetchRadarData, 3000);
-        window.onload = fetchRadarData;
-    </script>
-</head>
-<body>
-    <h2>Islamabad Airspace Radar (Cloud Stream)</h2>
-    <div id="error-box"></div>
-    <p>Tracking live ADS-B traffic around Pakistan sector via cloud. Auto-updating every 3 seconds. <span id='status'>Connecting...</span></p>
-    <table>
-        <thead>
-            <tr><th>Flight / Airline</th><th>Route (Orig -> Dest)</th><th>Aircraft Type</th><th>Altitude (ft)</th><th>Speed (kts)</th><th>Position</th></tr>
-        </thead>
-        <tbody id='radar-body'>
-            <tr><td colspan='6' style='text-align:center;'>Loading initial flight data...</td></tr>
-        </tbody>
-    </table>
-    <p style='margin-top:15px;'><b>Total Aircraft Tracked in Sector:</b> <span id='ac-count'>0</span></p>
-</body>
-</html>
+                    // Silent background retry: do NOT show the red banner on minor network drops,
+                    // just keep the current table active and log to console.
+                    console.warn('Background poll skipped/retrying:', err);
