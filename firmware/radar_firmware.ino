@@ -38,9 +38,11 @@
     <p style="margin-top:15px;"><b>Total Aircraft Tracked in Sector:</b> <span id="ac-count">0</span></p>
 
     <script>
+        console.log("Radar script started! Pointing to api.airplanes.live");
         const routeCache = {};
-        // NO PROXY NEEDED! ADSB.fi natively allows direct GitHub Pages connections.
-        const targetUrl = "https://api.adsb.fi/v2/lat/33.6844/lon/73.0479/dist/250";
+        
+        // Switched to api.airplanes.live - Highly reliable with native open CORS headers for browsers
+        const targetUrl = "https://api.airplanes.live/v2/point/33.6844/73.0479/250";
 
         function pollRadar() {
             const statusEl = document.getElementById('status');
@@ -107,9 +109,8 @@
                     statusEl.innerText = 'Live (Updated: ' + new Date().toLocaleTimeString() + ')';
                 })
                 .catch(err => {
-                    console.warn('Poll error:', err);
+                    console.error('Fetch error:', err);
                     statusEl.style.color = '#f85149'; 
-                    // This will now print the exact error on your screen if it fails
                     statusEl.innerText = 'Connection Error: ' + err.message; 
                 });
         }
