@@ -39,32 +39,27 @@
 
     <script>
         const routeCache = {};
-        const targetUrl = "https://api.adsb.lol/v2/point/33.6844/73.0479/250";
-        // Using /get forces a clean JSON payload, bypassing strict MIME browser blocks entirely
-        const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl);
+        // NO PROXY NEEDED! ADSB.fi natively allows direct GitHub Pages connections.
+        const targetUrl = "https://api.adsb.fi/v2/lat/33.6844/lon/73.0479/dist/250";
 
         function pollRadar() {
             const statusEl = document.getElementById('status');
             statusEl.innerText = 'Polling sector...';
-            statusEl.style.color = '#e3b341'; // Yellow
+            statusEl.style.color = '#e3b341';
             
-            fetch(proxyUrl)
+            fetch(targetUrl)
                 .then(res => {
-                    if (!res.ok) throw new Error('Network response failed');
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
                     return res.json();
                 })
                 .then(data => {
-                    // Extract the actual JSON from the proxy's 'contents' wrapper
-                    if (!data.contents) throw new Error('No contents received from proxy');
-                    const realData = JSON.parse(data.contents);
-
                     const tbody = document.getElementById('radar-body');
                     const countElem = document.getElementById('ac-count');
                     tbody.innerHTML = '';
                     let count = 0;
 
-                    if (realData && realData.ac && realData.ac.length > 0) {
-                        realData.ac.forEach(ac => {
+                    if (data && data.ac && data.ac.length > 0) {
+                        data.ac.forEach(ac => {
                             const flight = ac.flight ? ac.flight.trim() : (ac.r || 'N/A');
                             const operatorCode = (ac.ownOp || flight.substring(0, 3)).trim().toUpperCase();
                             const logoUrl = 'https://flightaware.com/images/airline_logos/90p/' + operatorCode + '.png';
@@ -108,17 +103,17 @@
                         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#8b949e;">No aircraft currently reported in sector range.</td></tr>';
                     }
                     countElem.innerText = count;
-                    statusEl.style.color = '#3fb950'; // Green on success
+                    statusEl.style.color = '#3fb950'; 
                     statusEl.innerText = 'Live (Updated: ' + new Date().toLocaleTimeString() + ')';
                 })
                 .catch(err => {
                     console.warn('Poll error:', err);
-                    statusEl.style.color = '#f85149'; // Red on silent fail
-                    statusEl.innerText = 'Reconnecting...';
+                    statusEl.style.color = '#f85149'; 
+                    // This will now print the exact error on your screen if it fails
+                    statusEl.innerText = 'Connection Error: ' + err.message; 
                 });
         }
 
-        // Direct execution after a tiny delay guarantees it runs regardless of page load state
         setTimeout(pollRadar, 500);
         setInterval(pollRadar, 5000);
     </script>
